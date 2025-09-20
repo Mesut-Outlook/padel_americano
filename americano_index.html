@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Padel Americano — Fixture & Scoreboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div id="root"></div>
+
+  <!-- React 18 UMD -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <script type="module">
+    const { useEffect, useMemo, useState } = React;
+
+    // --- Data --------------------------------------------------------------
+    const PLAYERS = ["Mesut","Berk","Mumtaz","Ahmet","Erdem","Sercan","Sezgin","Batuhan","Emre"];
+
+    // Schedule: Week, Slot, Court, Team1, Team2, Waiting
+    const FIXTURE = [
+      // Week 1
+      { week: 1, slot: 1, court: "Saha 1", t1: ["Erdem","Sercan"], t2: ["Batuhan","Emre"], wait: "Mesut" },
+      { week: 1, slot: 1, court: "Saha 2", t1: ["Ahmet","Sezgin"], t2: ["Berk","Mumtaz"], wait: "Mesut" },
+      { week: 1, slot: 2, court: "Saha 1", t1: ["Emre","Erdem"], t2: ["Ahmet","Mesut"], wait: "Berk" },
+      { week: 1, slot: 2, court: "Saha 2", t1: ["Batuhan","Sercan"], t2: ["Mumtaz","Sezgin"], wait: "Berk" },
+      { week: 1, slot: 3, court: "Saha 1", t1: ["Erdem","Sezgin"], t2: ["Ahmet","Sercan"], wait: "Mumtaz" },
+      { week: 1, slot: 3, court: "Saha 2", t1: ["Batuhan","Berk"], t2: ["Emre","Mesut"], wait: "Mumtaz" },
+      // Week 2
+      { week: 2, slot: 1, court: "Saha 1", t1: ["Mesut","Mumtaz"], t2: ["Berk","Emre"], wait: "Ahmet" },
+      { week: 2, slot: 1, court: "Saha 2", t1: ["Sercan","Sezgin"], t2: ["Batuhan","Erdem"], wait: "Ahmet" },
+      { week: 2, slot: 2, court: "Saha 1", t1: ["Emre","Sezgin"], t2: ["Ahmet","Mumtaz"], wait: "Erdem" },
+      { week: 2, slot: 2, court: "Saha 2", t1: ["Berk","Sercan"], t2: ["Batuhan","Mesut"], wait: "Erdem" },
+      { week: 2, slot: 3, court: "Saha 1", t1: ["Batuhan","Sezgin"], t2: ["Ahmet","Erdem"], wait: "Sercan" },
+      { week: 2, slot: 3, court: "Saha 2", t1: ["Berk","Mesut"], t2: ["Emre","Mumtaz"], wait: "Sercan" },
+      // Week 3
+      { week: 3, slot: 1, court: "Saha 1", t1: ["Ahmet","Berk"], t2: ["Erdem","Mesut"], wait: "Sezgin" },
+      { week: 3, slot: 1, court: "Saha 2", t1: ["Emre","Sercan"], t2: ["Batuhan","Mumtaz"], wait: "Sezgin" },
+      { week: 3, slot: 2, court: "Saha 1", t1: ["Mumtaz","Sercan"], t2: ["Ahmet","Emre"], wait: "Batuhan" },
+      { week: 3, slot: 2, court: "Saha 2", t1: ["Mesut","Sezgin"], t2: ["Berk","Erdem"], wait: "Batuhan" },
+      { week: 3, slot: 3, court: "Saha 1", t1: ["Erdem","Mumtaz"], t2: ["Ahmet","Batuhan"], wait: "Emre" },
+      { week: 3, slot: 3, court: "Saha 2", t1: ["Berk","Sezgin"], t2: ["Mesut","Sercan"], wait: "Emre" },
+    ];
+
+    // --- Helpers -----------------------------------------------------------
+    const KEY_POINTS = "americano_points_v2";
+    const KEY_MATCHES = "americano_matches_v2";
+
+    function useLocalStorage(key, initialValue) {
+      const [state, setState] = useState(() => {
+        try {
+          const item = window.localStorage.getItem(key);
+          return item ? JSON.parse(item) : initialValue;
+        } catch (e) { return initialValue; }
+      });
+      useEffect(() => {
+        try { window.localStorage.setItem(key, JSON.stringify(state)); } catch (e) {}
+      }, [key, state]);
+      return [state, setState];
+    }
+
+    function clamp(n, min, max) {
+      return Math.max(min, Math.min(max, n));
+    }
+
+    // --- Main Component ----------------------------------------------------
+    function App() {
+      const [activeWeek, setActiveWeek] = useState(1);
+      const [points, setPoints] = useLocalStorage(
+        KEY_POINTS, Object.fromEntries(PLAYERS.map((p) => [p, 0]))
+      );
+      const [matches, setMatches] = useLocalStorage(KEY_MATCHES, {});
+
+      const weekList = useMemo(() => Array.from(new Set(FIXTURE.map((m) => m.week))), []);
+      const filtered = useMemo(
+        () => FIXTURE.filter((m) => m.week === activeWeek).sort((a, b) => a.slot - b.slot || a.court.localeCompare(b.court)),
+        [activeWeek]
+      );
+
+      const autoAward = useMemo(() => {
+        const award = Object.fromEntries(PLAYERS.map((p) => [p, 0]));
+        for (const m of FIXTURE) {
+          const key = `${m.week}-${m.slot}-${m.court}`;
+          const rec = matches[key];
+          if (!rec) continue;
+          const t1 = clamp(Number(rec.t1) || 0, 0, 32);
+          const t2 = clamp(Number(rec.t2) || 0, 0, 32);
+          for (const p of m.t1) award[p] += t1;
+          for (const p of m.t2) award[p] += t2;
+          if (t1 === 32 && t2 <= 31) {
+            for (const p of m.t1) award[p] += 10;
+          } else if (t2 === 32 && t1 <= 31) {
+            for (const p of m.t2) award[p] += 10;
+          }
+        }
+        return award;
+      }, [matches]);
+
+      const leaderboard = useMemo(() => {
+        const rows = PLAYERS.map((p) => ({
+          player: p,
+          manual: points[p] || 0,
+          auto: autoAward[p] || 0,
+          total: (points[p] || 0) + (autoAward[p] || 0),
+        }));
+        rows.sort((a, b) => b.total - a.total || a.player.localeCompare(b.player));
+        return rows;
+      }, [points, autoAward]);
+
+      function setScore(week, slot, court, side, value) {
+        const key = `${week}-${slot}-${court}`;
+        const cur = matches[key] || { t1: 0, t2: 0 };
+        const next = { ...cur, [side]: clamp(Number(value) || 0, 0, 32) };
+        setMatches({ ...matches, [key]: next });
+      }
+
+      function resetAll() {
+        if (!confirm("Tüm skorlar ve sonuçlar sıfırlansın mı?")) return;
+        setPoints(Object.fromEntries(PLAYERS.map((p) => [p, 0])));
+        setMatches({});
+      }
+
+      return (
+        React.createElement("div", { className: "min-h-screen bg-gray-50 text-gray-900" },
+          React.createElement("header", { className: "sticky top-0 z-10 bg-white/80 backdrop-blur border-b" },
+            React.createElement("div", { className: "max-w-6xl mx-auto px-4 py-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between" },
+              React.createElement("h1", { className: "text-2xl font-bold" }, "Padel Americano — Fixture & Scoreboard"),
+              React.createElement("div", { className: "flex items-center gap-3 flex-wrap" },
+                React.createElement("div", { className: "text-sm text-gray-600" },
+                  "Maç kuralı: ",
+                  React.createElement("strong", null, "32'ye kadar"),
+                  ", kazanan takımdaki her oyuncuya ",
+                  React.createElement("strong", null, "+10"),
+                  " bonus."
+                ),
+                React.createElement("button", { onClick: resetAll, className: "rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-100" }, "Sıfırla")
+              )
+            )
+          ),
+          React.createElement("main", { className: "max-w-6xl mx-auto px-4 py-6 grid gap-8 lg:grid-cols-5" },
+            React.createElement("section", { className: "lg:col-span-3" },
+              React.createElement("div", { className: "mb-3 flex gap-2 flex-wrap" },
+                weekList.map((w) =>
+                  React.createElement("button", {
+                    key: w, onClick: () => setActiveWeek(w),
+                    className: "px-3 py-1.5 rounded-xl border text-sm " + (activeWeek === w ? "bg-gray-900 text-white" : "hover:bg-gray-100")
+                  }, "Hafta ", w)
+                )
+              ),
+              React.createElement("div", { className: "grid gap-4" },
+                filtered.map((m) => {
+                  const k = `${m.week}-${m.slot}-${m.court}`;
+                  const rec = matches[k] || { t1: 0, t2: 0 };
+                  const t1 = rec.t1 ?? 0;
+                  const t2 = rec.t2 ?? 0;
+                  const validWinner = (t1 === 32 && t2 <= 31) || (t2 === 32 && t1 <= 31);
+
+                  return React.createElement("div", { key: k, className: "rounded-2xl border bg-white p-4 shadow-sm" },
+                    React.createElement("div", { className: "flex items-center justify-between gap-3" },
+                      React.createElement("div", { className: "text-sm font-medium text-gray-500" },
+                        "Slot ", m.slot, " · ", m.court, " · Bekleyen: ",
+                        React.createElement("span", { className: "font-semibold text-gray-700" }, m.wait)
+                      ),
+                      React.createElement("div", { className: "flex gap-2 text-xs" },
+                        React.createElement("span", { className: "rounded-full bg-gray-100 px-2 py-1" }, "30 dk")
+                      )
+                    ),
+                    React.createElement("div", { className: "mt-3 grid grid-cols-1 md:grid-cols-2 gap-3" },
+                      React.createElement("div", { className: "rounded-xl border p-3 " + (t1 === 32 ? "ring-2 ring-gray-800" : "") },
+                        React.createElement("div", { className: "text-xs uppercase tracking-wide text-gray-500" }, "Takım 1"),
+                        React.createElement("div", { className: "text-base font-semibold" }, m.t1.join(" & ")),
+                        React.createElement("div", { className: "mt-2 flex items-center gap-2" },
+                          React.createElement("input", {
+                            type: "number", min: 0, max: 32, value: t1,
+                            onChange: (e) => setScore(m.week, m.slot, m.court, "t1", e.target.value),
+                            className: "w-24 rounded-lg border px-2 py-1", title: "Takım 1 skoru (0-32)"
+                          }),
+                          React.createElement("span", { className: "text-xs text-gray-500" }, "/ 32")
+                        )
+                      ),
+                      React.createElement("div", { className: "rounded-xl border p-3 " + (t2 === 32 ? "ring-2 ring-gray-800" : "") },
+                        React.createElement("div", { className: "text-xs uppercase tracking-wide text-gray-500" }, "Takım 2"),
+                        React.createElement("div", { className: "text-base font-semibold" }, m.t2.join(" & ")),
+                        React.createElement("div", { className: "mt-2 flex items-center gap-2" },
+                          React.createElement("input", {
+                            type: "number", min: 0, max: 32, value: t2,
+                            onChange: (e) => setScore(m.week, m.slot, m.court, "t2", e.target.value),
+                            className: "w-24 rounded-lg border px-2 py-1", title: "Takım 2 skoru (0-32)"
+                          }),
+                          React.createElement("span", { className: "text-xs text-gray-500" }, "/ 32")
+                        )
+                      )
+                    ),
+                    !validWinner && React.createElement("div", { className: "mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1" },
+                      "Geçerli sonuç için: ", React.createElement("strong", null, "bir takım 32"), " olmalı ve diğeri ", React.createElement("strong", null, "≤ 31"), " kalmalı."
+                    )
+                  );
+                })
+              )
+            ),
+            React.createElement("section", { className: "lg:col-span-2" },
+              React.createElement("div", { className: "rounded-2xl border bg-white p-4 shadow-sm" },
+                React.createElement("div", { className: "flex items-end justify-between gap-3" },
+                  React.createElement("h2", { className: "text-lg font-semibold" }, "Skor Tablosu"),
+                  React.createElement("div", { className: "text-xs text-gray-500" }, "Puanlama: takım skoru + (kazanana kişi başı +10).")
+                ),
+                React.createElement("div", { className: "mt-4 overflow-x-auto" },
+                  React.createElement("table", { className: "w-full text-sm" },
+                    React.createElement("thead", null,
+                      React.createElement("tr", { className: "text-left text-gray-600" },
+                        React.createElement("th", { className: "py-2 pr-4" }, "Oyuncu"),
+                        React.createElement("th", { className: "py-2 pr-4" }, "Manuel (+/−)"),
+                        React.createElement("th", { className: "py-2 pr-4" }, "Maçlardan"),
+                        React.createElement("th", { className: "py-2" }, "Toplam")
+                      )
+                    ),
+                    React.createElement("tbody", null,
+                      (function() {
+                        const rows = PLAYERS.map((p) => ({ player: p, manual: points[p] || 0, auto: 0, total: 0 }));
+                        const indexByName = Object.fromEntries(PLAYERS.map((p,i)=>[p,i]));
+                        // compute auto from matches (duplicate of autoAward but inline for UMD simplicity)
+                        const award = Object.fromEntries(PLAYERS.map((p)=>[p,0]));
+                        for (const m of FIXTURE) {
+                          const key = `${m.week}-${m.slot}-${m.court}`;
+                          const rec = matches[key];
+                          if (!rec) continue;
+                          const t1 = clamp(Number(rec.t1) || 0, 0, 32);
+                          const t2 = clamp(Number(rec.t2) || 0, 0, 32);
+                          for (const p of m.t1) award[p] += t1;
+                          for (const p of m.t2) award[p] += t2;
+                          if (t1 === 32 && t2 <= 31) { for (const p of m.t1) award[p] += 10; }
+                          else if (t2 === 32 && t1 <= 31) { for (const p of m.t2) award[p] += 10; }
+                        }
+                        for (const r of rows) { r.auto = award[r.player] || 0; r.total = r.manual + r.auto; }
+                        rows.sort((a,b) => b.total - a.total || a.player.localeCompare(b.player));
+                        return rows.map((row) =>
+                          React.createElement("tr", { key: row.player, className: "border-t" },
+                            React.createElement("td", { className: "py-2 pr-4 font-medium" }, row.player),
+                            React.createElement("td", { className: "py-2 pr-4" },
+                              React.createElement("input", {
+                                type: "number", className: "w-24 rounded-lg border px-2 py-1",
+                                value: row.manual,
+                                onChange: (e) => {
+                                  const v = Number(e.target.value) || 0;
+                                  const next = { ...points, [row.player]: v };
+                                  // trigger state update
+                                  window.requestAnimationFrame(()=>setPoints(next));
+                                }
+                              })
+                            ),
+                            React.createElement("td", { className: "py-2 pr-4" }, row.auto),
+                            React.createElement("td", { className: "py-2 font-semibold" }, row.total)
+                          )
+                        );
+                      })()
+                    )
+                  )
+                )
+              ),
+              React.createElement("div", { className: "mt-4 grid gap-3" },
+                React.createElement("button", {
+                  onClick: () => {
+                    const payload = { points, matches };
+                    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `americano-score-${new Date().toISOString().slice(0,10)}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                  },
+                  className: "rounded-xl border px-3 py-2 text-sm hover:bg-gray-100"
+                }, "Verileri Dışa Aktar (JSON)"),
+                React.createElement("label", { className: "inline-flex items-center gap-2 text-sm" },
+                  React.createElement("span", { className: "rounded-xl border px-3 py-2 hover:bg-gray-100 cursor-pointer" }, "Veri Yükle (JSON)"),
+                  React.createElement("input", {
+                    type: "file", accept: "application/json", className: "hidden",
+                    onChange: async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const text = await file.text();
+                      try {
+                        const data = JSON.parse(text);
+                        if (data.points) setPoints(data.points);
+                        if (data.matches) setMatches(data.matches);
+                      } catch (err) {
+                        alert("Dosya okunamadı. Geçerli bir JSON seçin.");
+                      }
+                    }
+                  })
+                )
+              )
+            )
+          ),
+          React.createElement("footer", { className: "border-t bg-white/60" },
+            React.createElement("div", { className: "max-w-6xl mx-auto px-4 py-4 text-xs text-gray-500 flex flex-wrap items-center justify-between gap-2" },
+              React.createElement("div", null, "Her Çarşamba · 1,5 saat · 2 saha · her maç 30 dk · bir oyuncu beklemede"),
+              React.createElement("div", null, "© Americano Organizer")
+            )
+          )
+        )
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
