@@ -1,18 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 // --- Data --------------------------------------------------------------
-const PLAYERS = [
-  "Mesut",
-  "Berk",
-  "Mumtaz",
-  "Ahmet",
-  "Erdem",
-  "Sercan",
-  "Sezgin",
-  "Batuhan",
-  "Emre",
-  "Okan",
-];
+// Players will be fetched from players.json
+// const PLAYERS = [...]; // removed hardcoded list
 
 // Dynamic fixture generator: 2 courts, 3 weeks, 3 slots per week
 function generateFixture(players, weeks = 3, slotsPerWeek = 3, courts = ["Saha 1", "Saha 2"]) {
@@ -41,8 +31,8 @@ function generateFixture(players, weeks = 3, slotsPerWeek = 3, courts = ["Saha 1
   return out;
 }
 
-// Schedule: Week, Slot, Court, Team1, Team2, Waiting
-const FIXTURE = generateFixture(PLAYERS);
+// We'll create fixture after players are loaded
+// const FIXTURE = generateFixture(PLAYERS);
 
 // --- Helpers -----------------------------------------------------------
 const KEY_POINTS = "americano_points_v3"; // manual extras
@@ -71,27 +61,51 @@ function clamp(n, min, max) {
 
 // --- Main Component ----------------------------------------------------
 export default function App() {
+  const [players, setPlayers] = useState(null);
+  const [fixture, setFixture] = useState([]);
   const [activeWeek, setActiveWeek] = useState(1);
-  // manual points (optional adjustments)
-  const [points, setPoints] = useLocalStorage(
-    KEY_POINTS,
-    Object.fromEntries(PLAYERS.map((p) => [p, 0]))
-  );
-
-  // match scores: key -> { t1: number, t2: number }
+  const [points, setPoints] = useLocalStorage(KEY_POINTS, {});
   const [matches, setMatches] = useLocalStorage(KEY_MATCHES, {});
 
-  const weekList = useMemo(() => Array.from(new Set(FIXTURE.map((m) => m.week))), []);
+  useEffect(() => {
+    let mounted = true;
+    fetch('players.json')
+      .then((r) => r.json())
+      .then((list) => {
+        if (!mounted) return;
+        setPlayers(list);
+        setFixture(generateFixture(list));
+        setPoints((prev) => {
+          const hasAny = prev && Object.keys(prev).length > 0;
+          if (hasAny) return prev;
+          return Object.fromEntries(list.map((p) => [p, 0]));
+        });
+      })
+      .catch(() => {
+        const fallback = ["Mesut","Berk","Mumtaz","Ahmet","Erdem","Sercan","Sezgin","Batuhan","Emre","Okan"];
+        setPlayers(fallback);
+        setFixture(generateFixture(fallback));
+        setPoints((prev) => {
+          const hasAny = prev && Object.keys(prev).length > 0;
+          if (hasAny) return prev;
+          return Object.fromEntries(fallback.map((p) => [p, 0]));
+        });
+      });
+    return () => { mounted = false; };
+  }, []);
+
+  const weekList = useMemo(() => Array.from(new Set(fixture.map((m) => m.week))), [fixture]);
   const filtered = useMemo(
-    () => FIXTURE.filter((m) => m.week === activeWeek).sort((a, b) => a.slot - b.slot || a.court.localeCompare(b.court)),
-    [activeWeek]
+    () => fixture.filter((m) => m.week === activeWeek).sort((a, b) => a.slot - b.slot || a.court.localeCompare(b.court)),
+    [activeWeek, fixture]
   );
 
   // Compute auto points from recorded scores
   // Rule: each player gets team-score points, and winners (team with score === 32) get +10 bonus each.
   const autoAward = useMemo(() => {
-    const award = Object.fromEntries(PLAYERS.map((p) => [p, 0]));
-    for (const m of FIXTURE) {
+    if (!players) return {};
+    const award = Object.fromEntries(players.map((p) => [p, 0]));
+    for (const m of fixture) {
       const key = `${m.week}-${m.slot}-${m.court}`;
       const rec = matches[key];
       if (!rec) continue;
@@ -108,10 +122,11 @@ export default function App() {
       }
     }
     return award;
-  }, [matches]);
+  }, [matches, players, fixture]);
 
   const leaderboard = useMemo(() => {
-    const rows = PLAYERS.map((p) => ({
+    if (!players) return [];
+    const rows = players.map((p) => ({
       player: p,
       manual: points[p] || 0,
       auto: autoAward[p] || 0,
@@ -119,7 +134,7 @@ export default function App() {
     }));
     rows.sort((a, b) => b.total - a.total || a.player.localeCompare(b.player));
     return rows;
-  }, [points, autoAward]);
+  }, [points, autoAward, players]);
 
   function setScore(week, slot, court, side, value) {
     const key = `${week}-${slot}-${court}`;
@@ -130,7 +145,7 @@ export default function App() {
 
   function resetAll() {
     if (!confirm("Tüm skorlar ve sonuçlar sıfırlansın mı?")) return;
-    setPoints(Object.fromEntries(PLAYERS.map((p) => [p, 0])));
+    if (players) setPoints(Object.fromEntries(players.map((p) => [p, 0])));
     setMatches({});
   }
 
@@ -147,8 +162,12 @@ export default function App() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 grid gap-8 lg:grid-cols-5">
+        {!players && (
+          <div className="lg:col-span-5 text-sm text-gray-600">Oyuncular yükleniyor...</div>
+        )}
         {/* Fixture */}
-        <section className="lg:col-span-3">
+        {players && (
+          <section className="lg:col-span-3">
           <div className="mb-3 flex gap-2 flex-wrap">
             {weekList.map((w) => (
               <button
@@ -230,9 +249,11 @@ export default function App() {
             })}
           </div>
         </section>
+        )}
 
         {/* Scoreboard */}
-        <section className="lg:col-span-2">
+  {players && (
+  <section className="lg:col-span-2">
           <div className="rounded-2xl border bg-white p-4 shadow-sm">
             <div className="flex items-end justify-between gap-3">
               <h2 className="text-lg font-semibold">Skor Tablosu</h2>
@@ -314,11 +335,12 @@ export default function App() {
             </label>
           </div>
         </section>
+        )}
       </main>
 
       <footer className="border-t bg-white/60">
         <div className="max-w-6xl mx-auto px-4 py-4 text-xs text-gray-500 flex flex-wrap items-center justify-between gap-2">
-          <div>Her Çarşamba · 1,5 saat · 2 saha · her maç 30 dk · {Math.max(0, PLAYERS.length - 8)} oyuncu beklemede</div>
+          <div>Her Çarşamba · 1,5 saat · 2 saha · her maç 30 dk · {players ? Math.max(0, players.length - 8) : 0} oyuncu beklemede</div>
           <div>© Americano Organizer</div>
         </div>
       </footer>
