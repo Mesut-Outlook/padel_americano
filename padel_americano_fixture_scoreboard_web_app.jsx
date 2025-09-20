@@ -109,6 +109,23 @@ export default function App() {
   useEffect(() => { if (config) setCourtsText((config.courts || []).join(", ")); }, [config]);
   useEffect(() => { if (players) setFixture(generateFixture(players, config.weeks, config.slotsPerWeek, config.courts)); }, [players, config]);
 
+  // Load config.json if no local override for config
+  useEffect(() => {
+    try { if (window.localStorage.getItem(KEY_CONFIG)) return; } catch {}
+    (async () => {
+      try {
+        const r = await fetch('config.json');
+        if (!r.ok) return;
+        const cfg = await r.json();
+        if (!cfg) return;
+        const weeks = Number(cfg.weeks) || 5;
+        const slotsPerWeek = Number(cfg.slotsPerWeek) || 3;
+        const courts = Array.isArray(cfg.courts) ? cfg.courts.filter(Boolean) : ["Saha 1","Saha 2"];
+        setConfig({ weeks, slotsPerWeek, courts });
+      } catch {}
+    })();
+  }, []);
+
   const weekList = useMemo(() => Array.from(new Set(fixture.map((m) => m.week))), [fixture]);
   const filtered = useMemo(
     () => fixture.filter((m) => m.week === activeWeek).sort((a, b) => a.slot - b.slot || a.court.localeCompare(b.court)),
@@ -150,6 +167,23 @@ export default function App() {
     rows.sort((a, b) => b.total - a.total || a.player.localeCompare(b.player));
     return rows;
   }, [points, autoAward, players]);
+
+  const uniqueOpponents = useMemo(() => {
+    if (!players) return {};
+    const map = {};
+    for (const m of fixture) {
+      const t1 = m.t1 || [], t2 = m.t2 || [];
+      for (const a of t1) {
+        map[a] = map[a] || new Set();
+        for (const b of t2) map[a].add(b);
+      }
+      for (const b of t2) {
+        map[b] = map[b] || new Set();
+        for (const a of t1) map[b].add(a);
+      }
+    }
+    return Object.fromEntries(Object.entries(map).map(([k, v]) => [k, Array.from(v).sort()]));
+  }, [fixture, players]);
 
   function setScore(week, slot, court, side, value) {
     const key = `${week}-${slot}-${court}`;
@@ -422,6 +456,32 @@ export default function App() {
                   try { window.localStorage.removeItem(KEY_PLAYERS_OVERRIDE); } catch {}
                   window.location.reload();
                 }}>Override'i Temizle</button>
+              </div>
+
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold mb-2">Rakip Çeşitliliği</h3>
+                {players && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-left text-gray-600">
+                          <th className="py-1 pr-3">Oyuncu</th>
+                          <th className="py-1 pr-3">Farklı Rakip Sayısı</th>
+                          <th className="py-1">Liste</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {players.map((p) => (
+                          <tr key={p} className="border-t">
+                            <td className="py-1 pr-3 font-medium">{p}</td>
+                            <td className="py-1 pr-3">{(uniqueOpponents[p] || []).length || 0}</td>
+                            <td className="py-1">{(uniqueOpponents[p] || []).join(', ')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </section>

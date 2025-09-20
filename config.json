@@ -1,0 +1,5 @@
+{
+  "weeks": 5,
+  "slotsPerWeek": 3,
+  "courts": ["Saha 1", "Saha 2"]
+}
