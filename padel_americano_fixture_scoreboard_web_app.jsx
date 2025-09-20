@@ -37,6 +37,8 @@ function generateFixture(players, weeks = 3, slotsPerWeek = 3, courts = ["Saha 1
 // --- Helpers -----------------------------------------------------------
 const KEY_POINTS = "americano_points_v3"; // manual extras
 const KEY_MATCHES = "americano_matches_v3"; // numeric scores per match
+const KEY_CONFIG = "americano_config_v1";
+const KEY_PLAYERS_OVERRIDE = "americano_players_override_v1";
 
 function useLocalStorage(key, initialValue) {
   const [state, setState] = useState(() => {
@@ -66,15 +68,24 @@ export default function App() {
   const [activeWeek, setActiveWeek] = useState(1);
   const [points, setPoints] = useLocalStorage(KEY_POINTS, {});
   const [matches, setMatches] = useLocalStorage(KEY_MATCHES, {});
+  const [config, setConfig] = useLocalStorage(KEY_CONFIG, { weeks: 3, slotsPerWeek: 3, courts: ["Saha 1","Saha 2"] });
+  const [playersOverride, setPlayersOverride] = useLocalStorage(KEY_PLAYERS_OVERRIDE, null);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [plText, setPlText] = useState("");
+  const [courtsText, setCourtsText] = useState("");
 
   useEffect(() => {
     let mounted = true;
-    fetch('players.json')
-      .then((r) => r.json())
+    const load = async () => {
+      if (Array.isArray(playersOverride) && playersOverride.length > 0) return playersOverride;
+      const r = await fetch('players.json');
+      return await r.json();
+    };
+    load()
       .then((list) => {
         if (!mounted) return;
         setPlayers(list);
-        setFixture(generateFixture(list));
+        setFixture(generateFixture(list, config.weeks, config.slotsPerWeek, config.courts));
         setPoints((prev) => {
           const hasAny = prev && Object.keys(prev).length > 0;
           if (hasAny) return prev;
@@ -84,7 +95,7 @@ export default function App() {
       .catch(() => {
         const fallback = ["Mesut","Berk","Mumtaz","Ahmet","Erdem","Sercan","Sezgin","Batuhan","Emre","Okan"];
         setPlayers(fallback);
-        setFixture(generateFixture(fallback));
+        setFixture(generateFixture(fallback, config.weeks, config.slotsPerWeek, config.courts));
         setPoints((prev) => {
           const hasAny = prev && Object.keys(prev).length > 0;
           if (hasAny) return prev;
@@ -92,7 +103,11 @@ export default function App() {
         });
       });
     return () => { mounted = false; };
-  }, []);
+  }, [playersOverride, config.weeks, config.slotsPerWeek, config.courts]);
+
+  useEffect(() => { if (players) setPlText(players.join("\n")); }, [players]);
+  useEffect(() => { if (config) setCourtsText((config.courts || []).join(", ")); }, [config]);
+  useEffect(() => { if (players) setFixture(generateFixture(players, config.weeks, config.slotsPerWeek, config.courts)); }, [players, config]);
 
   const weekList = useMemo(() => Array.from(new Set(fixture.map((m) => m.week))), [fixture]);
   const filtered = useMemo(
@@ -157,6 +172,9 @@ export default function App() {
           <div className="flex items-center gap-3 flex-wrap">
             <div className="text-sm text-gray-600">Maç kuralı: <strong>32'ye kadar</strong>, kazanan takımdaki her oyuncuya <strong>+10</strong> bonus.</div>
             <button onClick={resetAll} className="rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-100">Sıfırla</button>
+            <button onClick={() => setShowAdmin((v) => !v)} className="rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-100">
+              {showAdmin ? "Yönetimi Gizle" : "Yönetimi Aç"}
+            </button>
           </div>
         </div>
       </header>
@@ -336,11 +354,77 @@ export default function App() {
           </div>
         </section>
         )}
+        {showAdmin && (
+          <section className="lg:col-span-5">
+            <div className="rounded-2xl border bg-white p-4 shadow-sm">
+              <div className="flex items-end justify-between gap-3">
+                <h2 className="text-lg font-semibold">Yönetim Paneli</h2>
+                <div className="text-xs text-gray-500">Bu değişiklikler localStorage'da saklanabilir; players.json'a yazmak için indirip depoya ekleyin.</div>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Oyuncular (bir satır = bir oyuncu)</label>
+                  <textarea value={plText} onChange={(e)=>setPlText(e.target.value)} rows={10} className="w-full rounded-lg border px-2 py-2" />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Hafta sayısı</label>
+                  <input type="number" min={1} value={config.weeks} onChange={(e)=> setConfig({...config, weeks: Math.max(1, Number(e.target.value)||1)})} className="w-40 rounded-lg border px-2 py-1" />
+                  <label className="text-sm font-medium mt-2">Hafta başına slot</label>
+                  <input type="number" min={1} value={config.slotsPerWeek} onChange={(e)=> setConfig({...config, slotsPerWeek: Math.max(1, Number(e.target.value)||1)})} className="w-40 rounded-lg border px-2 py-1" />
+                  <label className="text-sm font-medium mt-2">Sahalar (virgülle ayırın)</label>
+                  <input type="text" value={courtsText} onChange={(e)=> setCourtsText(e.target.value)} className="w-full rounded-lg border px-2 py-1" />
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-100" onClick={() => {
+                  const newPlayers = Array.from(new Set(plText.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)));
+                  const newCourts = courtsText.split(',').map(s=>s.trim()).filter(Boolean);
+                  if (newPlayers.length === 0) { alert('En az 1 oyuncu girin.'); return; }
+                  if (newCourts.length === 0) { alert('En az 1 saha girin.'); return; }
+                  setPlayers(newPlayers);
+                  setConfig((prev)=> ({...prev, courts: newCourts}));
+                  setFixture(generateFixture(newPlayers, config.weeks, config.slotsPerWeek, newCourts));
+                  setPoints((prev)=> {
+                    const next = {};
+                    for (const p of newPlayers) next[p] = prev?.[p] || 0;
+                    return next;
+                  });
+                  setMatches({});
+                }}>Uygula (bu oturum)</button>
+
+                <button className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-100" onClick={() => {
+                  const newPlayers = Array.from(new Set(plText.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)));
+                  setPlayersOverride(newPlayers);
+                  alert('Oyuncu listesi bu cihazda kaydedildi (override). Sayfayı yenilerseniz de bu liste kullanılacak.');
+                }}>Yerelde Kaydet (override)</button>
+
+                <button className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-100" onClick={() => {
+                  const data = players || [];
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = 'players.json';
+                  document.body.appendChild(a);
+                  a.click(); a.remove();
+                  URL.revokeObjectURL(url);
+                }}>players.json indir</button>
+
+                <button className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-100" onClick={() => {
+                  if (!confirm("Yerel override temizlensin ve players.json'a geri dönülsün mü?")) return;
+                  try { window.localStorage.removeItem(KEY_PLAYERS_OVERRIDE); } catch {}
+                  window.location.reload();
+                }}>Override'i Temizle</button>
+              </div>
+            </div>
+          </section>
+        )}
       </main>
 
       <footer className="border-t bg-white/60">
         <div className="max-w-6xl mx-auto px-4 py-4 text-xs text-gray-500 flex flex-wrap items-center justify-between gap-2">
-          <div>Her Çarşamba · 1,5 saat · 2 saha · her maç 30 dk · {players ? Math.max(0, players.length - 8) : 0} oyuncu beklemede</div>
+    <div>Her Çarşamba · 1,5 saat · {Array.isArray(config?.courts) ? config.courts.length : 2} saha · her maç 30 dk · {players ? Math.max(0, players.length - (Array.isArray(config?.courts) ? config.courts.length * 4 : 8)) : 0} oyuncu beklemede</div>
           <div>© Americano Organizer</div>
         </div>
       </footer>
