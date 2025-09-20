@@ -43,3 +43,30 @@ Aşağıda her oyuncu için maç sayısı ve bekleme sayısı verilmiştir.
 - 5 hafta: Herkes eşit (12 maç).
 
 Not: Genel kural olarak, (hafta × slot × saha) çarpımı 5’in katı olduğunda 10 oyuncu için eşit dağılım sağlanır (çünkü toplam katılım = 4 × hafta × slot × saha, bunun 10’a bölünebilmesi gerekir).
+
+## Rakip Çeşitliliği (Unique Opponents)
+Her oyuncunun karşılaştığı farklı rakip sayısı ve listesi (mevcut `players.json` ile):
+
+### 3 Hafta — Unique Opponents
+- Mesut: 6 — Ahmet, Batuhan, Berk, Emre, Mumtaz, Okan
+- Berk: 7 — Ahmet, Emre, Mesut, Mumtaz, Okan, Sercan, Sezgin
+- Mumtaz: 8 — Batuhan, Berk, Emre, Erdem, Mesut, Okan, Sercan, Sezgin
+- Ahmet: 7 — Batuhan, Berk, Emre, Erdem, Mesut, Sercan, Sezgin
+- Erdem: 7 — Ahmet, Batuhan, Emre, Mumtaz, Okan, Sercan, Sezgin
+- Sercan: 8 — Ahmet, Batuhan, Berk, Emre, Erdem, Mumtaz, Okan, Sezgin
+- Sezgin: 8 — Ahmet, Batuhan, Berk, Emre, Erdem, Mumtaz, Okan, Sercan
+- Batuhan: 8 — Ahmet, Emre, Erdem, Mesut, Mumtaz, Okan, Sercan, Sezgin
+- Emre: 9 — Ahmet, Batuhan, Berk, Erdem, Mesut, Mumtaz, Okan, Sercan, Sezgin
+- Okan: 8 — Batuhan, Berk, Emre, Erdem, Mesut, Mumtaz, Sercan, Sezgin
+
+### 5 Hafta — Unique Opponents
+- Mesut: 9 — Ahmet, Batuhan, Berk, Emre, Erdem, Mumtaz, Okan, Sercan, Sezgin
+- Berk: 9 — Ahmet, Batuhan, Emre, Erdem, Mesut, Mumtaz, Okan, Sercan, Sezgin
+- Mumtaz: 9 — Ahmet, Batuhan, Berk, Emre, Erdem, Mesut, Okan, Sercan, Sezgin
+- Ahmet: 9 — Batuhan, Berk, Emre, Erdem, Mesut, Mumtaz, Okan, Sercan, Sezgin
+- Erdem: 9 — Ahmet, Batuhan, Berk, Emre, Mesut, Mumtaz, Okan, Sercan, Sezgin
+- Sercan: 9 — Ahmet, Batuhan, Berk, Emre, Erdem, Mesut, Mumtaz, Okan, Sezgin
+- Sezgin: 9 — Ahmet, Batuhan, Berk, Emre, Erdem, Mesut, Mumtaz, Okan, Sercan
+- Batuhan: 9 — Ahmet, Berk, Emre, Erdem, Mesut, Mumtaz, Okan, Sercan, Sezgin
+- Emre: 9 — Ahmet, Batuhan, Berk, Emre, Mesut, Mumtaz, Okan, Sercan, Sezgin
+- Okan: 9 — Ahmet, Batuhan, Berk, Emre, Erdem, Mesut, Mumtaz, Sercan, Sezgin
