@@ -68,7 +68,7 @@ export default function App() {
   const [activeWeek, setActiveWeek] = useState(1);
   const [points, setPoints] = useLocalStorage(KEY_POINTS, {});
   const [matches, setMatches] = useLocalStorage(KEY_MATCHES, {});
-  const [config, setConfig] = useLocalStorage(KEY_CONFIG, { weeks: 3, slotsPerWeek: 3, courts: ["Saha 1","Saha 2"] });
+  const [config, setConfig] = useLocalStorage(KEY_CONFIG, { weeks: 5, slotsPerWeek: 3, courts: ["Saha 1","Saha 2"] });
   const [playersOverride, setPlayersOverride] = useLocalStorage(KEY_PLAYERS_OVERRIDE, null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [plText, setPlText] = useState("");
