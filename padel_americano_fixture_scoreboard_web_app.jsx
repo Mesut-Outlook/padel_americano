@@ -232,6 +232,8 @@ export default function App() {
                           max={32}
                           value={t1}
                           onChange={(e) => setScore(m.week, m.slot, m.court, "t1", e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          onClick={(e) => e.target.select()}
                           className="w-24 rounded-lg border px-2 py-1"
                           title="Takım 1 skoru (0-32)"
                         />
@@ -249,6 +251,8 @@ export default function App() {
                           max={32}
                           value={t2}
                           onChange={(e) => setScore(m.week, m.slot, m.court, "t2", e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          onClick={(e) => e.target.select()}
                           className="w-24 rounded-lg border px-2 py-1"
                           title="Takım 2 skoru (0-32)"
                         />
