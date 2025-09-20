@@ -213,11 +213,13 @@ export default function App() {
               return (
                 <div key={k} className="rounded-2xl border bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-medium text-gray-500">
-                      Slot {m.slot} · {m.court} · Bekleyen: <span className="font-semibold text-gray-700">{m.wait}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center rounded-md bg-gray-900 text-white px-2.5 py-1 text-xs font-semibold">Slot {m.slot}</span>
+                      <span className="inline-flex items-center rounded-md bg-gray-800/90 text-white px-2.5 py-1 text-xs font-semibold">{m.court}</span>
+                      <span className="text-sm text-gray-600">Bekleyen: <span className="font-semibold text-gray-800">{m.wait || "-"}</span></span>
                     </div>
                     <div className="flex gap-2 text-xs">
-                      <span className="rounded-full bg-gray-100 px-2 py-1">30 dk</span>
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1">30 dk</span>
                     </div>
                   </div>
 
