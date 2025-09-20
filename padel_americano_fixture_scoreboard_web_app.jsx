@@ -11,36 +11,42 @@ const PLAYERS = [
   "Sezgin",
   "Batuhan",
   "Emre",
+  "Okan",
 ];
+
+// Dynamic fixture generator: 2 courts, 3 weeks, 3 slots per week
+function generateFixture(players, weeks = 3, slotsPerWeek = 3, courts = ["Saha 1", "Saha 2"]) {
+  const n = players.length;
+  const perSlotCapacity = courts.length * 4; // 8 players per slot
+  const waitCount = Math.max(0, n - perSlotCapacity);
+  const out = [];
+  for (let w = 1; w <= weeks; w++) {
+    for (let s = 1; s <= slotsPerWeek; s++) {
+      const slotIndex = (w - 1) * slotsPerWeek + (s - 1);
+      const waiters = [];
+      for (let k = 0; k < waitCount; k++) {
+        waiters.push(players[(slotIndex * waitCount + k) % n]);
+      }
+      const available = players.filter((p) => !waiters.includes(p));
+      const rot = slotIndex % available.length;
+      const rotated = available.slice(rot).concat(available.slice(0, rot));
+      for (let c = 0; c < courts.length; c++) {
+        const base = c * 4;
+        const t1 = [rotated[base], rotated[base + 1]];
+        const t2 = [rotated[base + 2], rotated[base + 3]];
+        out.push({ week: w, slot: s, court: courts[c], t1, t2, wait: waiters.join(" & ") });
+      }
+    }
+  }
+  return out;
+}
 
 // Schedule: Week, Slot, Court, Team1, Team2, Waiting
-const FIXTURE = [
-  // Week 1
-  { week: 1, slot: 1, court: "Saha 1", t1: ["Erdem", "Sercan"], t2: ["Batuhan", "Emre"], wait: "Mesut" },
-  { week: 1, slot: 1, court: "Saha 2", t1: ["Ahmet", "Sezgin"], t2: ["Berk", "Mumtaz"], wait: "Mesut" },
-  { week: 1, slot: 2, court: "Saha 1", t1: ["Emre", "Erdem"], t2: ["Ahmet", "Mesut"], wait: "Berk" },
-  { week: 1, slot: 2, court: "Saha 2", t1: ["Batuhan", "Sercan"], t2: ["Mumtaz", "Sezgin"], wait: "Berk" },
-  { week: 1, slot: 3, court: "Saha 1", t1: ["Erdem", "Sezgin"], t2: ["Ahmet", "Sercan"], wait: "Mumtaz" },
-  { week: 1, slot: 3, court: "Saha 2", t1: ["Batuhan", "Berk"], t2: ["Emre", "Mesut"], wait: "Mumtaz" },
-  // Week 2
-  { week: 2, slot: 1, court: "Saha 1", t1: ["Mesut", "Mumtaz"], t2: ["Berk", "Emre"], wait: "Ahmet" },
-  { week: 2, slot: 1, court: "Saha 2", t1: ["Sercan", "Sezgin"], t2: ["Batuhan", "Erdem"], wait: "Ahmet" },
-  { week: 2, slot: 2, court: "Saha 1", t1: ["Emre", "Sezgin"], t2: ["Ahmet", "Mumtaz"], wait: "Erdem" },
-  { week: 2, slot: 2, court: "Saha 2", t1: ["Berk", "Sercan"], t2: ["Batuhan", "Mesut"], wait: "Erdem" },
-  { week: 2, slot: 3, court: "Saha 1", t1: ["Batuhan", "Sezgin"], t2: ["Ahmet", "Erdem"], wait: "Sercan" },
-  { week: 2, slot: 3, court: "Saha 2", t1: ["Berk", "Mesut"], t2: ["Emre", "Mumtaz"], wait: "Sercan" },
-  // Week 3
-  { week: 3, slot: 1, court: "Saha 1", t1: ["Ahmet", "Berk"], t2: ["Erdem", "Mesut"], wait: "Sezgin" },
-  { week: 3, slot: 1, court: "Saha 2", t1: ["Emre", "Sercan"], t2: ["Batuhan", "Mumtaz"], wait: "Sezgin" },
-  { week: 3, slot: 2, court: "Saha 1", t1: ["Mumtaz", "Sercan"], t2: ["Ahmet", "Emre"], wait: "Batuhan" },
-  { week: 3, slot: 2, court: "Saha 2", t1: ["Mesut", "Sezgin"], t2: ["Berk", "Erdem"], wait: "Batuhan" },
-  { week: 3, slot: 3, court: "Saha 1", t1: ["Erdem", "Mumtaz"], t2: ["Ahmet", "Batuhan"], wait: "Emre" },
-  { week: 3, slot: 3, court: "Saha 2", t1: ["Berk", "Sezgin"], t2: ["Mesut", "Sercan"], wait: "Emre" },
-];
+const FIXTURE = generateFixture(PLAYERS);
 
 // --- Helpers -----------------------------------------------------------
-const KEY_POINTS = "americano_points_v2"; // manual extras
-const KEY_MATCHES = "americano_matches_v2"; // numeric scores per match
+const KEY_POINTS = "americano_points_v3"; // manual extras
+const KEY_MATCHES = "americano_matches_v3"; // numeric scores per match
 
 function useLocalStorage(key, initialValue) {
   const [state, setState] = useState(() => {
@@ -312,7 +318,7 @@ export default function App() {
 
       <footer className="border-t bg-white/60">
         <div className="max-w-6xl mx-auto px-4 py-4 text-xs text-gray-500 flex flex-wrap items-center justify-between gap-2">
-          <div>Her Çarşamba · 1,5 saat · 2 saha · her maç 30 dk · bir oyuncu beklemede</div>
+          <div>Her Çarşamba · 1,5 saat · 2 saha · her maç 30 dk · {Math.max(0, PLAYERS.length - 8)} oyuncu beklemede</div>
           <div>© Americano Organizer</div>
         </div>
       </footer>
