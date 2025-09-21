@@ -73,6 +73,8 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [plText, setPlText] = useState("");
   const [courtsText, setCourtsText] = useState("");
+  const [newPlayer, setNewPlayer] = useState("");
+  const [courtCount, setCourtCount] = useState(Array.isArray(config.courts) ? config.courts.length : 2);
 
   useEffect(() => {
     let mounted = true;
@@ -108,6 +110,11 @@ export default function App() {
   useEffect(() => { if (players) setPlText(players.join("\n")); }, [players]);
   useEffect(() => { if (config) setCourtsText((config.courts || []).join(", ")); }, [config]);
   useEffect(() => { if (players) setFixture(generateFixture(players, config.weeks, config.slotsPerWeek, config.courts)); }, [players, config]);
+  useEffect(() => { setCourtCount(Array.isArray(config.courts) ? config.courts.length : 2); }, [config]);
+
+  const parsedPlayers = useMemo(() => {
+    return Array.from(new Set((plText || "").split(/\r?\n/).map(s => s.trim()).filter(Boolean)));
+  }, [plText]);
 
   // Load config.json if no local override for config
   useEffect(() => {
@@ -406,12 +413,43 @@ export default function App() {
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">Oyuncular (bir satır = bir oyuncu)</label>
                   <textarea value={plText} onChange={(e)=>setPlText(e.target.value)} rows={10} className="w-full rounded-lg border px-2 py-2" />
+                  <div className="flex gap-2 items-center">
+                    <input type="text" value={newPlayer} placeholder="Yeni oyuncu adı" onChange={(e)=> setNewPlayer(e.target.value)} className="flex-1 rounded-lg border px-2 py-1" />
+                    <button className="rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-100" onClick={() => {
+                      const name = (newPlayer || '').trim();
+                      if (!name) return;
+                      const arr = Array.from(new Set((plText || '').split(/\r?\n/).map(s=>s.trim()).filter(Boolean).concat([name])));
+                      setPlText(arr.join('\n'));
+                      setNewPlayer('');
+                    }}>Ekle</button>
+                  </div>
+                  <div className="max-h-48 overflow-auto rounded-lg border">
+                    <ul className="divide-y">
+                      {parsedPlayers.map((p) => (
+                        <li key={p} className="flex items-center justify-between px-2 py-1.5 text-sm">
+                          <span>{p}</span>
+                          <button className="text-red-600 hover:underline" onClick={() => {
+                            const next = parsedPlayers.filter(x => x !== p);
+                            setPlText(next.join('\n'));
+                          }}>Sil</button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <label className="text-sm font-medium">Hafta sayısı</label>
                   <input type="number" min={1} value={config.weeks} onChange={(e)=> setConfig({...config, weeks: Math.max(1, Number(e.target.value)||1)})} className="w-40 rounded-lg border px-2 py-1" />
-                  <label className="text-sm font-medium mt-2">Hafta başına slot</label>
+                  <label className="text-sm font-medium mt-2">Hafta başına round (slot)</label>
                   <input type="number" min={1} value={config.slotsPerWeek} onChange={(e)=> setConfig({...config, slotsPerWeek: Math.max(1, Number(e.target.value)||1)})} className="w-40 rounded-lg border px-2 py-1" />
+                  <label className="text-sm font-medium mt-2">Saha sayısı</label>
+                  <input type="number" min={1} value={courtCount} onChange={(e)=> {
+                    const n = Math.max(1, Number(e.target.value) || 1);
+                    setCourtCount(n);
+                    const auto = Array.from({ length: n }, (_, i) => `Saha ${i+1}`);
+                    setCourtsText(auto.join(', '));
+                    setConfig({ ...config, courts: auto });
+                  }} className="w-40 rounded-lg border px-2 py-1" />
                   <label className="text-sm font-medium mt-2">Sahalar (virgülle ayırın)</label>
                   <input type="text" value={courtsText} onChange={(e)=> setCourtsText(e.target.value)} className="w-full rounded-lg border px-2 py-1" />
                 </div>
@@ -432,7 +470,7 @@ export default function App() {
                     return next;
                   });
                   setMatches({});
-                }}>Uygula (bu oturum)</button>
+                }}>Ayarları Uygula (bu oturum)</button>
 
                 <button className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-100" onClick={() => {
                   const newPlayers = Array.from(new Set(plText.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)));
@@ -452,10 +490,29 @@ export default function App() {
                 }}>players.json indir</button>
 
                 <button className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-100" onClick={() => {
+                  const cfg = { weeks: config.weeks, slotsPerWeek: config.slotsPerWeek, courts: courtsText.split(',').map(s=>s.trim()).filter(Boolean) };
+                  const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = 'config.json';
+                  document.body.appendChild(a);
+                  a.click(); a.remove();
+                  URL.revokeObjectURL(url);
+                }}>config.json indir</button>
+
+                <button className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-100" onClick={() => {
                   if (!confirm("Yerel override temizlensin ve players.json'a geri dönülsün mü?")) return;
                   try { window.localStorage.removeItem(KEY_PLAYERS_OVERRIDE); } catch {}
                   window.location.reload();
                 }}>Override'i Temizle</button>
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-100" onClick={() => {
+                    if (!confirm("Konfigürasyon (hafta/slot/saha) yerel olarak sıfırlansın mı?")) return;
+                    try { window.localStorage.removeItem(KEY_CONFIG); } catch {}
+                    window.location.reload();
+                  }}>Config override'ı Temizle</button>
+                </div>
               </div>
 
               <div className="mt-6">
