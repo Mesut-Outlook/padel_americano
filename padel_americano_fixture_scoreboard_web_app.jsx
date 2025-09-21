@@ -277,8 +277,8 @@ export default function App() {
                 <div key={k} className="rounded-2xl border bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="inline-flex items-center rounded-md bg-indigo-600 text-white px-2.5 py-1 text-xs font-semibold">Slot {m.slot}</span>
-                      <span className="inline-flex items-center rounded-md bg-blue-600 text-white px-2.5 py-1 text-xs font-semibold">{m.court}</span>
+                      <span className="inline-flex items-center rounded-md bg-amber-500 text-gray-900 px-2.5 py-1 text-xs font-semibold">Slot {m.slot}</span>
+                      <span className="inline-flex items-center rounded-md bg-emerald-600 text-white px-2.5 py-1 text-xs font-semibold">{m.court}</span>
                       <span className="text-sm text-gray-600">Bekleyen: <span className="font-semibold text-gray-800">{m.wait || "-"}</span></span>
                     </div>
                     <div className="flex gap-2 text-xs">
