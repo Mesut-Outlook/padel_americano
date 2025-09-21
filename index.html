@@ -91,7 +91,7 @@
       const [players, setPlayers] = useState(null);
       const [fixture, setFixture] = useState([]);
       const [activeWeek, setActiveWeek] = useState(1);
-      const [points, setPoints] = useLocalStorage(KEY_POINTS, {});
+    const [points, setPoints] = useLocalStorage(KEY_POINTS, {});
       const [matches, setMatches] = useLocalStorage(KEY_MATCHES, {});
   const [config, setConfig] = useLocalStorage(KEY_CONFIG, { weeks: 5, slotsPerWeek: 3, courts: ["Saha 1","Saha 2"] });
       const [playersOverride, setPlayersOverride] = useLocalStorage(KEY_PLAYERS_OVERRIDE, null);
@@ -100,6 +100,8 @@
       const [courtsText, setCourtsText] = useState("");
       const [newPlayer, setNewPlayer] = useState("");
       const [courtCount, setCourtCount] = useState(Array.isArray(config.courts) ? config.courts.length : 2);
+    const [activeSlot, setActiveSlot] = useState("all");
+    const [activeCourt, setActiveCourt] = useState("all");
 
       useEffect(() => {
         let mounted = true;
@@ -161,10 +163,18 @@
       }, []);
 
   const weekList = useMemo(() => Array.from(new Set(fixture.map((m) => m.week))), [fixture]);
-      const filtered = useMemo(
-        () => fixture.filter((m) => m.week === activeWeek).sort((a, b) => a.slot - b.slot || a.court.localeCompare(b.court)),
-        [activeWeek, fixture]
-      );
+      const slotList = useMemo(() => {
+        const list = fixture.filter((m) => m.week === activeWeek).map(m => m.slot);
+        return Array.from(new Set(list)).sort((a,b)=>a-b);
+      }, [fixture, activeWeek]);
+      useEffect(() => { setActiveSlot("all"); setActiveCourt("all"); }, [activeWeek, config.courts]);
+      const filtered = useMemo(() => {
+        return fixture
+          .filter((m) => m.week === activeWeek)
+          .filter((m) => (activeSlot === "all" ? true : m.slot === Number(activeSlot)))
+          .filter((m) => (activeCourt === "all" ? true : m.court === activeCourt))
+          .sort((a, b) => a.slot - b.slot || a.court.localeCompare(b.court));
+      }, [activeWeek, fixture, activeSlot, activeCourt]);
 
       const autoAward = useMemo(() => {
         if (!players) return {};
@@ -252,14 +262,26 @@
 
           React.createElement("main", { className: "max-w-6xl mx-auto px-4 py-6 grid gap-8 lg:grid-cols-5" },
             players && React.createElement("section", { className: "lg:col-span-3" },
-              React.createElement("div", { className: "mb-3 flex gap-2 flex-wrap" },
+              React.createElement("div", { className: "mb-3 flex gap-2 flex-wrap items-center" },
                 weekList.map((w) => (
                   React.createElement("button", {
                     key: w,
                     onClick: () => setActiveWeek(w),
                     className: "px-3 py-1.5 rounded-xl border text-sm " + (activeWeek === w ? "bg-gray-900 text-white" : "hover:bg-gray-100")
-                  }, "Hafta ", w)
-                ))
+                  }, "Tur ", w)
+                )),
+                React.createElement("div", { className: "ml-auto flex gap-2 items-center" },
+                  React.createElement("label", { className: "text-xs text-gray-600" }, "Slot:"),
+                  React.createElement("select", { value: activeSlot, onChange: (e)=> setActiveSlot(e.target.value), className: "rounded-lg border px-2 py-1 text-sm" },
+                    React.createElement("option", { value: "all" }, "Tümü"),
+                    slotList.map((s)=> React.createElement("option", { key: s, value: String(s) }, s))
+                  ),
+                  React.createElement("label", { className: "text-xs text-gray-600" }, "Saha:"),
+                  React.createElement("select", { value: activeCourt, onChange: (e)=> setActiveCourt(e.target.value), className: "rounded-lg border px-2 py-1 text-sm" },
+                    React.createElement("option", { value: "all" }, "Tümü"),
+                    (config.courts||[]).map((c)=> React.createElement("option", { key: c, value: c }, c))
+                  )
+                )
               ),
               React.createElement("div", { className: "grid gap-4" },
                 filtered.map((m) => {
@@ -430,9 +452,9 @@
                     )
                   ),
                   React.createElement("div", { className: "grid gap-2" },
-                    React.createElement("label", { className: "text-sm font-medium" }, "Hafta sayısı"),
+                    React.createElement("label", { className: "text-sm font-medium" }, "Tur (round) sayısı"),
                     React.createElement("input", { type: "number", min: 1, value: config.weeks, onChange: (e) => setConfig({ ...config, weeks: Math.max(1, Number(e.target.value) || 1) }), className: "w-40 rounded-lg border px-2 py-1" }),
-                    React.createElement("label", { className: "text-sm font-medium mt-2" }, "Hafta başına round (slot)"),
+                    React.createElement("label", { className: "text-sm font-medium mt-2" }, "Tur başına slot"),
                     React.createElement("input", { type: "number", min: 1, value: config.slotsPerWeek, onChange: (e) => setConfig({ ...config, slotsPerWeek: Math.max(1, Number(e.target.value) || 1) }), className: "w-40 rounded-lg border px-2 py-1" }),
                     React.createElement("label", { className: "text-sm font-medium mt-2" }, "Saha sayısı"),
                     React.createElement("input", { type: "number", min: 1, value: courtCount, onChange: (e) => {

@@ -75,6 +75,8 @@ export default function App() {
   const [courtsText, setCourtsText] = useState("");
   const [newPlayer, setNewPlayer] = useState("");
   const [courtCount, setCourtCount] = useState(Array.isArray(config.courts) ? config.courts.length : 2);
+  const [activeSlot, setActiveSlot] = useState("all");
+  const [activeCourt, setActiveCourt] = useState("all");
 
   useEffect(() => {
     let mounted = true;
@@ -134,10 +136,18 @@ export default function App() {
   }, []);
 
   const weekList = useMemo(() => Array.from(new Set(fixture.map((m) => m.week))), [fixture]);
-  const filtered = useMemo(
-    () => fixture.filter((m) => m.week === activeWeek).sort((a, b) => a.slot - b.slot || a.court.localeCompare(b.court)),
-    [activeWeek, fixture]
-  );
+  const slotList = useMemo(() => {
+    const list = fixture.filter((m) => m.week === activeWeek).map(m=>m.slot);
+    return Array.from(new Set(list)).sort((a,b)=>a-b);
+  }, [fixture, activeWeek]);
+  useEffect(()=> { setActiveSlot("all"); setActiveCourt("all"); }, [activeWeek, config.courts]);
+  const filtered = useMemo(() => {
+    return fixture
+      .filter((m) => m.week === activeWeek)
+      .filter((m) => (activeSlot === "all" ? true : m.slot === Number(activeSlot)))
+      .filter((m) => (activeCourt === "all" ? true : m.court === activeCourt))
+      .sort((a, b) => a.slot - b.slot || a.court.localeCompare(b.court));
+  }, [activeWeek, fixture, activeSlot, activeCourt]);
 
   // Compute auto points from recorded scores
   // Rule: each player gets team-score points, and winners (team with score === 32) get +10 bonus each.
@@ -237,9 +247,21 @@ export default function App() {
                   (activeWeek === w ? "bg-gray-900 text-white" : "hover:bg-gray-100")
                 }
               >
-                Hafta {w}
+                Tur {w}
               </button>
             ))}
+            <div className="ml-auto flex gap-2 items-center">
+              <label className="text-xs text-gray-600">Slot:</label>
+              <select value={activeSlot} onChange={(e)=> setActiveSlot(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">
+                <option value="all">Tümü</option>
+                {slotList.map((s)=> (<option key={s} value={String(s)}>{s}</option>))}
+              </select>
+              <label className="text-xs text-gray-600">Saha:</label>
+              <select value={activeCourt} onChange={(e)=> setActiveCourt(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">
+                <option value="all">Tümü</option>
+                {(config.courts||[]).map((c)=> (<option key={c} value={c}>{c}</option>))}
+              </select>
+            </div>
           </div>
 
           <div className="grid gap-4">
@@ -438,9 +460,9 @@ export default function App() {
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium">Hafta sayısı</label>
+                  <label className="text-sm font-medium">Tur (round) sayısı</label>
                   <input type="number" min={1} value={config.weeks} onChange={(e)=> setConfig({...config, weeks: Math.max(1, Number(e.target.value)||1)})} className="w-40 rounded-lg border px-2 py-1" />
-                  <label className="text-sm font-medium mt-2">Hafta başına round (slot)</label>
+                  <label className="text-sm font-medium mt-2">Tur başına slot</label>
                   <input type="number" min={1} value={config.slotsPerWeek} onChange={(e)=> setConfig({...config, slotsPerWeek: Math.max(1, Number(e.target.value)||1)})} className="w-40 rounded-lg border px-2 py-1" />
                   <label className="text-sm font-medium mt-2">Saha sayısı</label>
                   <input type="number" min={1} value={courtCount} onChange={(e)=> {
