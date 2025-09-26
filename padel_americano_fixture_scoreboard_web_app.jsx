@@ -150,7 +150,7 @@ export default function App() {
   }, [activeWeek, fixture, activeSlot, activeCourt]);
 
   // Compute auto points from recorded scores
-  // Rule: each player gets team-score points, and winners (team with score === 32) get +10 bonus each.
+  // Rule: each player gets team-score points, and winners (team with score === 32) get +5 bonus each.
   const autoAward = useMemo(() => {
     if (!players) return {};
     const award = Object.fromEntries(players.map((p) => [p, 0]));
@@ -165,9 +165,9 @@ export default function App() {
       for (const p of m.t2) award[p] += t2;
       // winner bonus
       if (t1 === 32 && t2 <= 31) {
-        for (const p of m.t1) award[p] += 10;
+        for (const p of m.t1) award[p] += 5;
       } else if (t2 === 32 && t1 <= 31) {
-        for (const p of m.t2) award[p] += 10;
+        for (const p of m.t2) award[p] += 5;
       }
     }
     return award;
@@ -221,7 +221,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <h1 className="text-2xl font-bold">Padel Americano — Fixture & Scoreboard</h1>
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="text-sm text-gray-600">Maç kuralı: <strong>32'ye kadar</strong>, kazanan takımdaki her oyuncuya <strong>+10</strong> bonus.</div>
+            <div className="text-sm text-gray-600">Maç kuralı: <strong>32'ye kadar</strong>, kazanan takımdaki her oyuncuya <strong>+5</strong> bonus.</div>
             <button onClick={resetAll} className="rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-100">Sıfırla</button>
             <button onClick={() => setShowAdmin((v) => !v)} className="rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-100">
               {showAdmin ? "Yönetimi Gizle" : "Yönetimi Aç"}
@@ -344,7 +344,7 @@ export default function App() {
           <div className="rounded-2xl border bg-white p-4 shadow-sm">
             <div className="flex items-end justify-between gap-3">
               <h2 className="text-lg font-semibold">Skor Tablosu</h2>
-              <div className="text-xs text-gray-500">Puanlama: takım skoru + (kazanana kişi başı +10).</div>
+              <div className="text-xs text-gray-500">Puanlama: takım skoru + (kazanana kişi başı +5).</div>
             </div>
 
             <div className="mt-4 overflow-x-auto">

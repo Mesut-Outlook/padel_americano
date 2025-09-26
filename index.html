@@ -188,9 +188,9 @@
           for (const p of m.t1) award[p] += t1;
           for (const p of m.t2) award[p] += t2;
           if (t1 === 32 && t2 <= 31) {
-            for (const p of m.t1) award[p] += 10;
+            for (const p of m.t1) award[p] += 5;
           } else if (t2 === 32 && t1 <= 31) {
-            for (const p of m.t2) award[p] += 10;
+            for (const p of m.t2) award[p] += 5;
           }
         }
         return award;
@@ -251,7 +251,7 @@
                   "Maç kuralı: ",
                   React.createElement("strong", null, "32'ye kadar"),
                   ", kazanan takımdaki her oyuncuya ",
-                  React.createElement("strong", null, "+10"),
+                  React.createElement("strong", null, "+5"),
                   " bonus."
                 ),
                 React.createElement("button", { onClick: resetAll, className: "rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-100" }, "Sıfırla"),
@@ -344,7 +344,7 @@
               React.createElement("div", { className: "rounded-2xl border bg-white p-4 shadow-sm" },
                 React.createElement("div", { className: "flex items-end justify-between gap-3" },
                   React.createElement("h2", { className: "text-lg font-semibold" }, "Skor Tablosu"),
-                  React.createElement("div", { className: "text-xs text-gray-500" }, "Puanlama: takım skoru + (kazanana kişi başı +10).")
+                  React.createElement("div", { className: "text-xs text-gray-500" }, "Puanlama: takım skoru + (kazanana kişi başı +5).")
                 ),
                 React.createElement("div", { className: "mt-4 overflow-x-auto" },
                   React.createElement("table", { className: "w-full text-sm" },
