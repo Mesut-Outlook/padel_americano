@@ -31,6 +31,136 @@ function generateFixture(players, weeks = 3, slotsPerWeek = 3, courts = ["Saha 1
   return out;
 }
 
+// Balanced fixture generator - more fair teammate and opponent distribution
+function generateBalancedFixture(players, weeks = 5, slotsPerWeek = 3, courts = ["Saha 1","Saha 2"]) {
+  const n = players.length;
+  const perSlotCapacity = courts.length * 4;
+  const waitCount = Math.max(0, n - perSlotCapacity);
+  
+  // Track teammate and opponent frequencies
+  const teammateCount = {};
+  const opponentCount = {};
+  for (const p1 of players) {
+    teammateCount[p1] = {};
+    opponentCount[p1] = {};
+    for (const p2 of players) {
+      if (p1 !== p2) {
+        teammateCount[p1][p2] = 0;
+        opponentCount[p1][p2] = 0;
+      }
+    }
+  }
+  
+  const fixture = [];
+  
+  for (let w = 1; w <= weeks; w++) {
+    for (let s = 1; s <= slotsPerWeek; s++) {
+      const slotIndex = (w - 1) * slotsPerWeek + (s - 1);
+      
+      // Determine waiters using simple rotation
+      const waiters = [];
+      for (let k = 0; k < waitCount; k++) {
+        waiters.push(players[(slotIndex * waitCount + k) % n]);
+      }
+      
+      // Available players for this slot
+      const available = players.filter(p => !waiters.includes(p));
+      
+      // Generate all possible matches for this slot
+      const matches = [];
+      for (let c = 0; c < courts.length; c++) {
+        // Generate all possible team combinations (4 players per court)
+        const combinations = [];
+        for (let i = 0; i < available.length - 3; i++) {
+          for (let j = i + 1; j < available.length - 2; j++) {
+            for (let k = j + 1; k < available.length - 1; k++) {
+              for (let l = k + 1; l < available.length; l++) {
+                const fourPlayers = [available[i], available[j], available[k], available[l]];
+                // Two possible team arrangements
+                combinations.push({
+                  t1: [fourPlayers[0], fourPlayers[1]],
+                  t2: [fourPlayers[2], fourPlayers[3]]
+                });
+                combinations.push({
+                  t1: [fourPlayers[0], fourPlayers[2]],
+                  t2: [fourPlayers[1], fourPlayers[3]]
+                });
+                combinations.push({
+                  t1: [fourPlayers[0], fourPlayers[3]],
+                  t2: [fourPlayers[1], fourPlayers[2]]
+                });
+              }
+            }
+          }
+        }
+        
+        // Find the combination with lowest "cost" (most balanced)
+        let bestCombination = null;
+        let lowestCost = Infinity;
+        
+        for (const combo of combinations) {
+          // Skip if players already used in this slot
+          const allPlayers = [...combo.t1, ...combo.t2];
+          if (matches.some(m => m.t1.some(p => allPlayers.includes(p)) || m.t2.some(p => allPlayers.includes(p)))) {
+            continue;
+          }
+          
+          // Calculate cost based on previous teammate and opponent frequencies
+          let cost = 0;
+          
+          // Teammate cost
+          cost += teammateCount[combo.t1[0]][combo.t1[1]] || 0;
+          cost += teammateCount[combo.t1[1]][combo.t1[0]] || 0;
+          cost += teammateCount[combo.t2[0]][combo.t2[1]] || 0;
+          cost += teammateCount[combo.t2[1]][combo.t2[0]] || 0;
+          
+          // Opponent cost
+          for (const p1 of combo.t1) {
+            for (const p2 of combo.t2) {
+              cost += opponentCount[p1][p2] || 0;
+              cost += opponentCount[p2][p1] || 0;
+            }
+          }
+          
+          if (cost < lowestCost) {
+            lowestCost = cost;
+            bestCombination = combo;
+          }
+        }
+        
+        if (bestCombination) {
+          matches.push({
+            week: w,
+            slot: s,
+            court: courts[c],
+            t1: bestCombination.t1,
+            t2: bestCombination.t2,
+            wait: waiters.join(" & ")
+          });
+          
+          // Update teammate counts
+          teammateCount[bestCombination.t1[0]][bestCombination.t1[1]]++;
+          teammateCount[bestCombination.t1[1]][bestCombination.t1[0]]++;
+          teammateCount[bestCombination.t2[0]][bestCombination.t2[1]]++;
+          teammateCount[bestCombination.t2[1]][bestCombination.t2[0]]++;
+          
+          // Update opponent counts
+          for (const p1 of bestCombination.t1) {
+            for (const p2 of bestCombination.t2) {
+              opponentCount[p1][p2]++;
+              opponentCount[p2][p1]++;
+            }
+          }
+        }
+      }
+      
+      fixture.push(...matches);
+    }
+  }
+  
+  return fixture;
+}
+
 // We'll create fixture after players are loaded
 // const FIXTURE = generateFixture(PLAYERS);
 
@@ -77,6 +207,7 @@ export default function App() {
   const [courtCount, setCourtCount] = useState(Array.isArray(config.courts) ? config.courts.length : 2);
   const [activeSlot, setActiveSlot] = useState("all");
   const [activeCourt, setActiveCourt] = useState("all");
+  const [fixtureAlgorithm, setFixtureAlgorithm] = useState("balanced");
 
   useEffect(() => {
     let mounted = true;
@@ -89,7 +220,8 @@ export default function App() {
       .then((list) => {
         if (!mounted) return;
         setPlayers(list);
-        setFixture(generateFixture(list, config.weeks, config.slotsPerWeek, config.courts));
+        const generator = fixtureAlgorithm === "balanced" ? generateBalancedFixture : generateFixture;
+        setFixture(generator(list, config.weeks, config.slotsPerWeek, config.courts));
         setPoints((prev) => {
           const hasAny = prev && Object.keys(prev).length > 0;
           if (hasAny) return prev;
@@ -99,7 +231,8 @@ export default function App() {
       .catch(() => {
         const fallback = ["Mesut","Berk","Mumtaz","Ahmet","Erdem","Sercan","Sezgin","Batuhan","Emre","Okan"];
         setPlayers(fallback);
-        setFixture(generateFixture(fallback, config.weeks, config.slotsPerWeek, config.courts));
+        const generator = fixtureAlgorithm === "balanced" ? generateBalancedFixture : generateFixture;
+        setFixture(generator(fallback, config.weeks, config.slotsPerWeek, config.courts));
         setPoints((prev) => {
           const hasAny = prev && Object.keys(prev).length > 0;
           if (hasAny) return prev;
@@ -107,11 +240,16 @@ export default function App() {
         });
       });
     return () => { mounted = false; };
-  }, [playersOverride, config.weeks, config.slotsPerWeek, config.courts]);
+  }, [playersOverride, config.weeks, config.slotsPerWeek, config.courts, fixtureAlgorithm]);
 
   useEffect(() => { if (players) setPlText(players.join("\n")); }, [players]);
   useEffect(() => { if (config) setCourtsText((config.courts || []).join(", ")); }, [config]);
-  useEffect(() => { if (players) setFixture(generateFixture(players, config.weeks, config.slotsPerWeek, config.courts)); }, [players, config]);
+  useEffect(() => { 
+    if (players) {
+      const generator = fixtureAlgorithm === "balanced" ? generateBalancedFixture : generateFixture;
+      setFixture(generator(players, config.weeks, config.slotsPerWeek, config.courts)); 
+    }
+  }, [players, config, fixtureAlgorithm]);
   useEffect(() => { setCourtCount(Array.isArray(config.courts) ? config.courts.length : 2); }, [config]);
 
   const parsedPlayers = useMemo(() => {
@@ -215,6 +353,13 @@ export default function App() {
     setMatches({});
   }
 
+  function regenerateFixture() {
+    if (!players) return;
+    if (!confirm("Fikstür yeniden düzenlensin mi? (Mevcut skorlar korunacak)")) return;
+    const generator = fixtureAlgorithm === "balanced" ? generateBalancedFixture : generateFixture;
+    setFixture(generator(players, config.weeks, config.slotsPerWeek, config.courts));
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b">
@@ -223,6 +368,7 @@ export default function App() {
           <div className="flex items-center gap-3 flex-wrap">
             <div className="text-sm text-gray-600">Maç kuralı: <strong>32'ye kadar</strong>, kazanan takımdaki her oyuncuya <strong>+5</strong> bonus.</div>
             <button onClick={resetAll} className="rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-100">Sıfırla</button>
+            <button onClick={regenerateFixture} className="rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-100">Yeniden Düzenle</button>
             <button onClick={() => setShowAdmin((v) => !v)} className="rounded-xl border px-3 py-1.5 text-sm hover:bg-gray-100">
               {showAdmin ? "Yönetimi Gizle" : "Yönetimi Aç"}
             </button>
@@ -474,6 +620,11 @@ export default function App() {
                   }} className="w-40 rounded-lg border px-2 py-1" />
                   <label className="text-sm font-medium mt-2">Sahalar (virgülle ayırın)</label>
                   <input type="text" value={courtsText} onChange={(e)=> setCourtsText(e.target.value)} className="w-full rounded-lg border px-2 py-1" />
+                  <label className="text-sm font-medium mt-2">Fikstür Algoritması</label>
+                  <select value={fixtureAlgorithm} onChange={(e) => setFixtureAlgorithm(e.target.value)} className="w-full rounded-lg border px-2 py-1">
+                    <option value="balanced">Dengeli (Önerilen) - Adil takım arkadaşı ve rakip dağılımı</option>
+                    <option value="simple">Basit Rotasyon - Hızlı ve basit</option>
+                  </select>
                 </div>
               </div>
 
